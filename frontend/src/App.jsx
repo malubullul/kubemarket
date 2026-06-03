@@ -151,6 +151,7 @@ function Shell() {
           <Route path="/admin/categories" element={<AdminOnly><AdminCategories /></AdminOnly>} />
           <Route path="/admin/users" element={<AdminOnly><AdminUsers /></AdminOnly>} />
           <Route path="/admin/orders" element={<AdminOnly><AdminOrders /></AdminOnly>} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </div>
@@ -173,8 +174,18 @@ function Home() {
   const [products, setProducts] = useState([]);
 
   useEffect(() => {
-    api.get('/products/categories').then((response) => setCategories(response.data.categories));
-    api.get('/products', { params: { limit: 16 } }).then((response) => setProducts(response.data.products));
+    let active = true;
+
+    api.get('/products/categories')
+      .then((response) => active && setCategories(response.data.categories || []))
+      .catch(() => active && setCategories([]));
+    api.get('/products', { params: { limit: 16 } })
+      .then((response) => active && setProducts(response.data.products || []))
+      .catch(() => active && setProducts([]));
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
@@ -233,12 +244,26 @@ function ProductList({ compact = false }) {
   const category = searchParams.get('category') || '';
 
   useEffect(() => {
-    api.get('/products/categories').then((response) => setCategories(response.data.categories));
+    let active = true;
+    api.get('/products/categories')
+      .then((response) => active && setCategories(response.data.categories || []))
+      .catch(() => active && setCategories([]));
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
+    let active = true;
     const params = { search: searchParams.get('search') || '', category, limit: compact ? 8 : 60 };
-    api.get('/products', { params }).then((response) => setProducts(response.data.products));
+    api.get('/products', { params })
+      .then((response) => active && setProducts(response.data.products || []))
+      .catch(() => active && setProducts([]));
+
+    return () => {
+      active = false;
+    };
   }, [searchParams, category, compact]);
 
   const submit = (event) => {
@@ -287,8 +312,12 @@ function ProductCard({ product }) {
     event.preventDefault();
     event.stopPropagation();
     if (!user) return navigate('/login');
-    await api.post('/cart/items', { productId: Number(product.id), quantity: 1 });
-    navigate('/cart', { replace: false });
+    try {
+      await api.post('/cart/items', { productId: Number(product.id), quantity: 1 });
+      navigate('/cart', { replace: false });
+    } catch {
+      window.alert('Gagal menambahkan produk ke keranjang. Coba lagi sebentar.');
+    }
   };
 
   return (
@@ -316,24 +345,51 @@ function ProductDetail() {
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get(`/products/${id}`).then((response) => setProduct(response.data.product));
+    let active = true;
+    setLoading(true);
+    setError('');
+    setProduct(null);
+
+    api.get(`/products/${id}`)
+      .then((response) => {
+        if (!active) return;
+        setProduct(response.data.product || null);
+        if (!response.data.product) setError('Produk tidak ditemukan.');
+      })
+      .catch(() => active && setError('Gagal memuat produk. Silakan kembali ke daftar produk.'))
+      .finally(() => active && setLoading(false));
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   const addToCart = async () => {
     if (!user) return navigate('/login');
-    await api.post('/cart/items', { productId: Number(id), quantity });
-    navigate('/cart', { replace: false });
+    try {
+      await api.post('/cart/items', { productId: Number(id), quantity });
+      navigate('/cart', { replace: false });
+    } catch {
+      window.alert('Gagal menambahkan produk ke keranjang. Coba lagi sebentar.');
+    }
   };
 
   const buyNow = async () => {
     if (!user) return navigate('/login');
-    await api.post('/cart/items', { productId: Number(id), quantity });
-    navigate('/checkout', { replace: false });
+    try {
+      await api.post('/cart/items', { productId: Number(id), quantity });
+      navigate('/checkout', { replace: false });
+    } catch {
+      window.alert('Gagal memproses produk. Coba lagi sebentar.');
+    }
   };
 
-  if (!product) return <Loading />;
+  if (loading) return <Loading />;
+  if (error || !product) return <EmptyState title="Produk belum bisa ditampilkan" text={error || 'Produk tidak ditemukan.'} action={<Link className="btn-primary" to="/products">Kembali ke Produk</Link>} />;
   const meta = productMeta(product.id);
   return (
     <div className="grid gap-6 rounded-lg bg-white p-6 shadow-soft md:grid-cols-2">
@@ -403,12 +459,26 @@ function Register() { return <AuthForm mode="register" />; }
 function Cart() {
   const navigate = useNavigate();
   const [cart, setCart] = useState({ items: [], total: 0 });
-  const load = () => api.get('/cart').then((response) => setCart(response.data.cart));
+  const [error, setError] = useState('');
+  const load = () => api.get('/cart')
+    .then((response) => {
+      setCart(response.data.cart || { items: [], total: 0 });
+      setError('');
+    })
+    .catch(() => setError('Gagal memuat keranjang. Silakan coba lagi.'));
   useEffect(load, []);
-  const remove = async (id) => { await api.delete(`/cart/items/${id}`); load(); };
+  const remove = async (id) => {
+    try {
+      await api.delete(`/cart/items/${id}`);
+      load();
+    } catch {
+      setError('Produk gagal dihapus dari keranjang.');
+    }
+  };
 
   return (
     <Panel title="Keranjang" icon={ShoppingCart}>
+      {error && <InlineError text={error} />}
       <div className="space-y-3">
         {cart.items.map((item) => (
           <div key={item.id} className="flex flex-col gap-4 rounded-md border border-gray-200 p-3 sm:flex-row sm:items-center">
@@ -538,17 +608,31 @@ function Profile() {
 function Addresses() {
   const [addresses, setAddresses] = useState([]);
   const [form, setForm] = useState({ recipientName: '', recipientPhone: '', province: '', city: '', district: '', postalCode: '', fullAddress: '', isDefault: true });
-  const load = () => api.get('/addresses').then((response) => setAddresses(response.data.addresses));
+  const [error, setError] = useState('');
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const load = () => api.get('/addresses')
+    .then((response) => {
+      setAddresses(response.data.addresses || []);
+      setError('');
+    })
+    .catch(() => setError('Gagal memuat alamat pengiriman.'));
   useEffect(load, []);
   const submit = async (event) => {
     event.preventDefault();
-    await api.post('/addresses', form);
-    setForm({ recipientName: '', recipientPhone: '', province: '', city: '', district: '', postalCode: '', fullAddress: '', isDefault: true });
-    load();
+    try {
+      await api.post('/addresses', form);
+      setForm({ recipientName: '', recipientPhone: '', province: '', city: '', district: '', postalCode: '', fullAddress: '', isDefault: true });
+      await load();
+      if (searchParams.get('checkout') === '1') navigate('/checkout', { replace: true });
+    } catch {
+      setError('Alamat gagal disimpan. Lengkapi semua data lalu coba lagi.');
+    }
   };
 
   return (
     <Panel title="Alamat Pengiriman" icon={MapPin}>
+      {error && <InlineError text={error} />}
       <form onSubmit={submit} className="mb-6 grid gap-3 md:grid-cols-2">
         {[
           ['recipientName', 'Nama penerima'], ['recipientPhone', 'Nomor penerima'], ['province', 'Provinsi'],
@@ -571,15 +655,47 @@ function Addresses() {
 
 function Orders() {
   const [orders, setOrders] = useState([]);
-  useEffect(() => { api.get('/orders').then((response) => setOrders(response.data.orders)); }, []);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    api.get('/orders')
+      .then((response) => active && setOrders(response.data.orders || []))
+      .catch(() => active && setError('Gagal memuat riwayat pesanan.'));
+
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (error) return <EmptyState title="Riwayat belum bisa ditampilkan" text={error} action={<Link className="btn-primary" to="/">Kembali Belanja</Link>} />;
   return <OrdersTable title="Riwayat Pesanan" orders={orders} base="/orders" />;
 }
 
 function OrderDetail() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
-  useEffect(() => { api.get(`/orders/${id}`).then((response) => setOrder(response.data.order)); }, [id]);
-  if (!order) return <Loading />;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    setOrder(null);
+
+    api.get(`/orders/${id}`)
+      .then((response) => {
+        if (!active) return;
+        setOrder(response.data.order || null);
+        if (!response.data.order) setError('Pesanan tidak ditemukan.');
+      })
+      .catch(() => active && setError('Gagal memuat detail pesanan.'))
+      .finally(() => active && setLoading(false));
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+  if (loading) return <Loading />;
+  if (error || !order) return <EmptyState title="Detail pesanan belum bisa ditampilkan" text={error || 'Pesanan tidak ditemukan.'} action={<Link className="btn-primary" to="/orders">Kembali ke Riwayat</Link>} />;
 
   return (
     <Panel title={`Pesanan #${order.id}`} icon={Package}>
@@ -600,8 +716,21 @@ function OrderDetail() {
 
 function AdminDashboard() {
   const [stats, setStats] = useState(null);
-  useEffect(() => { api.get('/admin/dashboard').then((response) => setStats(response.data.stats)); }, []);
-  if (!stats) return <Loading />;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    api.get('/admin/dashboard')
+      .then((response) => active && setStats(response.data.stats || null))
+      .catch(() => active && setError('Gagal memuat dashboard admin.'))
+      .finally(() => active && setLoading(false));
+
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (loading) return <Loading />;
+  if (error || !stats) return <EmptyState title="Dashboard belum bisa ditampilkan" text={error || 'Data dashboard tidak tersedia.'} action={<Link className="btn-primary" to="/">Kembali ke Beranda</Link>} />;
 
   return (
     <Panel title="Dashboard Admin" icon={LayoutDashboard}>
@@ -624,31 +753,52 @@ function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState({ categoryId: '', name: '', description: '', price: 100000, stock: 10, imageUrl: 'https://loremflickr.com/800/600/product?lock=999' });
-  const load = () => api.get('/products', { params: { limit: 100 } }).then((response) => setProducts(response.data.products));
+  const [error, setError] = useState('');
+  const load = () => api.get('/products', { params: { limit: 100 } })
+    .then((response) => setProducts(response.data.products || []))
+    .catch(() => setError('Gagal memuat produk.'));
 
   useEffect(() => {
+    let active = true;
     load();
-    api.get('/products/categories').then((response) => {
-      setCategories(response.data.categories);
-      setForm((current) => ({ ...current, categoryId: response.data.categories[0]?.id || '' }));
-    });
+    api.get('/products/categories')
+      .then((response) => {
+        if (!active) return;
+        const categoryList = response.data.categories || [];
+        setCategories(categoryList);
+        setForm((current) => ({ ...current, categoryId: categoryList[0]?.id || '' }));
+      })
+      .catch(() => active && setError('Gagal memuat kategori produk.'));
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const submit = async (event) => {
     event.preventDefault();
-    await api.post('/products', { ...form, categoryId: Number(form.categoryId), price: Number(form.price), stock: Number(form.stock), isActive: true });
-    setForm({ ...form, name: '', description: '' });
-    load();
+    try {
+      await api.post('/products', { ...form, categoryId: Number(form.categoryId), price: Number(form.price), stock: Number(form.stock), isActive: true });
+      setForm({ ...form, name: '', description: '' });
+      load();
+    } catch {
+      setError('Produk gagal disimpan.');
+    }
   };
 
   const deactivate = async (id) => {
-    await api.delete(`/products/${id}`);
-    load();
+    try {
+      await api.delete(`/products/${id}`);
+      load();
+    } catch {
+      setError('Produk gagal dinonaktifkan.');
+    }
   };
 
   return (
     <Panel title="Kelola Produk" icon={Boxes}>
       <AdminNav />
+      {error && <InlineError text={error} />}
       <form onSubmit={submit} className="mt-5 grid gap-3 rounded-md border border-gray-200 p-4 md:grid-cols-3">
         <select className="input" value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })}>
           {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
@@ -668,22 +818,37 @@ function AdminProducts() {
 function AdminCategories() {
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState({ name: '', slug: '', description: '' });
-  const load = () => api.get('/admin/categories').then((response) => setCategories(response.data.categories));
+  const [error, setError] = useState('');
+  const load = () => api.get('/admin/categories')
+    .then((response) => {
+      setCategories(response.data.categories || []);
+      setError('');
+    })
+    .catch(() => setError('Gagal memuat kategori.'));
   useEffect(load, []);
   const submit = async (event) => {
     event.preventDefault();
-    await api.post('/admin/categories', form);
-    setForm({ name: '', slug: '', description: '' });
-    load();
+    try {
+      await api.post('/admin/categories', form);
+      setForm({ name: '', slug: '', description: '' });
+      load();
+    } catch {
+      setError('Kategori gagal disimpan.');
+    }
   };
   const remove = async (id) => {
-    await api.delete(`/admin/categories/${id}`);
-    load();
+    try {
+      await api.delete(`/admin/categories/${id}`);
+      load();
+    } catch {
+      setError('Kategori gagal dihapus.');
+    }
   };
 
   return (
     <Panel title="Kelola Kategori" icon={Tag}>
       <AdminNav />
+      {error && <InlineError text={error} />}
       <form onSubmit={submit} className="mt-5 grid gap-3 rounded-md border border-gray-200 p-4 md:grid-cols-3">
         <input className="input" placeholder="Nama kategori" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value, slug: event.target.value.toLowerCase().replaceAll(' ', '-') })} />
         <input className="input" placeholder="Slug" value={form.slug} onChange={(event) => setForm({ ...form, slug: event.target.value })} />
@@ -697,10 +862,21 @@ function AdminCategories() {
 
 function AdminUsers() {
   const [users, setUsers] = useState([]);
-  useEffect(() => { api.get('/admin/users').then((response) => setUsers(response.data.users)); }, []);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    api.get('/admin/users')
+      .then((response) => active && setUsers(response.data.users || []))
+      .catch(() => active && setError('Gagal memuat pengguna.'));
+
+    return () => {
+      active = false;
+    };
+  }, []);
   return (
     <Panel title="Kelola Pengguna" icon={Users}>
       <AdminNav />
+      {error && <InlineError text={error} />}
       <DataTable columns={['ID', 'Nama', 'Email', 'Peran', 'Aktif']} rows={users.map((user) => [user.id, user.full_name, user.email, user.role === 'admin' ? 'Admin' : 'Pelanggan', user.is_active ? 'Ya' : 'Tidak'])} />
     </Panel>
   );
@@ -708,14 +884,25 @@ function AdminUsers() {
 
 function AdminOrders() {
   const [orders, setOrders] = useState([]);
-  useEffect(() => { api.get('/admin/orders').then((response) => setOrders(response.data.orders)); }, []);
-  return <OrdersTable title="Kelola Pesanan" orders={orders} admin />;
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    api.get('/admin/orders')
+      .then((response) => active && setOrders(response.data.orders || []))
+      .catch(() => active && setError('Gagal memuat pesanan.'));
+
+    return () => {
+      active = false;
+    };
+  }, []);
+  return <OrdersTable title="Kelola Pesanan" orders={orders} admin error={error} />;
 }
 
-function OrdersTable({ title, orders, base = '', admin = false }) {
+function OrdersTable({ title, orders = [], base = '', admin = false, error = '' }) {
   return (
     <Panel title={title} icon={Package}>
       {admin && <AdminNav />}
+      {error && <InlineError text={error} />}
       <DataTable
         columns={admin ? ['ID', 'Pelanggan', 'Status', 'Total', 'Kota'] : ['ID', 'Status', 'Total', 'Kota', 'Detail']}
         rows={orders.map((order) => admin
@@ -747,7 +934,7 @@ function Panel({ title, icon: Icon, children }) {
   );
 }
 
-function DataTable({ columns, rows }) {
+function DataTable({ columns = [], rows = [] }) {
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full min-w-[720px] text-left text-sm">
@@ -768,9 +955,21 @@ function Info({ label, value }) {
 
 function Loading() { return <div className="rounded-lg bg-white p-6 shadow-soft">Memuat...</div>; }
 function Empty({ text }) { return <div className="rounded-md border border-dashed border-gray-300 p-6 text-center text-gray-500">{text}</div>; }
+function InlineError({ text }) { return <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{text}</p>; }
+function NotFound() { return <EmptyState title="Halaman tidak ditemukan" text="Section yang kamu buka tidak tersedia atau sudah berubah." action={<Link className="btn-primary" to="/">Kembali ke Beranda</Link>} />; }
+function EmptyState({ title, text, action }) {
+  return (
+    <div className="mx-auto max-w-lg rounded-lg bg-white p-6 text-center shadow-soft">
+      <Store className="mx-auto mb-3 text-market-green" size={36} />
+      <h1 className="text-xl font-bold">{title}</h1>
+      <p className="mt-2 text-sm text-gray-500">{text}</p>
+      {action && <div className="mt-5 flex justify-center">{action}</div>}
+    </div>
+  );
+}
 
 export default function App() {
   const location = useLocation();
 
-  return <ErrorBoundary key={location.pathname}><AuthProvider><Shell /></AuthProvider></ErrorBoundary>;
+  return <ErrorBoundary key={location.key || `${location.pathname}${location.search}`}><AuthProvider><Shell /></AuthProvider></ErrorBoundary>;
 }
