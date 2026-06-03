@@ -385,14 +385,16 @@ function Checkout() {
   const [addresses, setAddresses] = useState([]);
   const [selected, setSelected] = useState('');
   const [cart, setCart] = useState({ items: [], total: 0 });
+  const cartItems = Array.isArray(cart?.items) ? cart.items : [];
 
   useEffect(() => {
     api.get('/addresses').then((response) => {
-      setAddresses(response.data.addresses);
-      if (!response.data.addresses.length) navigate('/addresses?checkout=1');
-      else setSelected(response.data.addresses[0].id);
+      const addressList = Array.isArray(response.data?.addresses) ? response.data.addresses : [];
+      setAddresses(addressList);
+      if (!addressList.length) navigate('/addresses?checkout=1');
+      else setSelected(addressList[0].id);
     });
-    api.get('/cart').then((response) => setCart(response.data.cart));
+    api.get('/cart').then((response) => setCart(response.data?.cart || { items: [], total: 0 }));
   }, [navigate]);
 
   const submit = async () => {
@@ -417,9 +419,9 @@ function Checkout() {
         </div>
         <div className="rounded-md border border-gray-200 p-4">
           <h3 className="mb-3 font-bold">Ringkasan Belanja</h3>
-          <p className="text-sm text-gray-500">{cart.items.length} produk</p>
+          <p className="text-sm text-gray-500">{cartItems.length} produk</p>
           <p className="mb-4 text-xl font-bold">{formatIdr(cart.total)}</p>
-          <button className="btn-primary w-full" onClick={submit} disabled={!selected || !cart.items.length}>Buat Pesanan</button>
+          <button className="btn-primary w-full" onClick={submit} disabled={!selected || !cartItems.length}>Buat Pesanan</button>
         </div>
       </div>
     </Panel>
