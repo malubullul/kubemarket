@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { Component, createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   BarChart3, Boxes, ChevronRight, LayoutDashboard, LogOut,
@@ -28,8 +28,51 @@ function useAuth() {
   return useContext(AuthContext);
 }
 
+function readStoredUser() {
+  try {
+    return JSON.parse(localStorage.getItem('kubemarket_user') || 'null');
+  } catch {
+    localStorage.removeItem('kubemarket_user');
+    localStorage.removeItem('kubemarket_token');
+    return null;
+  }
+}
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('KubeMarket render error', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="mx-auto mt-10 max-w-lg rounded-lg bg-white p-6 text-center shadow-soft">
+          <Store className="mx-auto mb-3 text-market-green" size={36} />
+          <h1 className="text-xl font-bold">Halaman perlu dimuat ulang</h1>
+          <p className="mt-2 text-sm text-gray-500">Terjadi masalah saat membuka halaman sebelumnya. Muat ulang atau kembali ke beranda untuk lanjut belanja.</p>
+          <div className="mt-5 flex justify-center gap-3">
+            <button className="btn-secondary" onClick={() => window.history.back()}>Kembali</button>
+            <button className="btn-primary" onClick={() => window.location.assign('/')}>Beranda</button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('kubemarket_user') || 'null'));
+  const [user, setUser] = useState(readStoredUser);
 
   const login = (payload) => {
     localStorage.setItem('kubemarket_token', payload.token);
@@ -385,25 +428,48 @@ function Checkout() {
   const [addresses, setAddresses] = useState([]);
   const [selected, setSelected] = useState('');
   const [cart, setCart] = useState({ items: [], total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const cartItems = Array.isArray(cart?.items) ? cart.items : [];
 
   useEffect(() => {
-    api.get('/addresses').then((response) => {
-      const addressList = Array.isArray(response.data?.addresses) ? response.data.addresses : [];
-      setAddresses(addressList);
-      if (!addressList.length) navigate('/addresses?checkout=1');
-      else setSelected(addressList[0].id);
-    });
-    api.get('/cart').then((response) => setCart(response.data?.cart || { items: [], total: 0 }));
+    let active = true;
+
+    Promise.all([api.get('/addresses'), api.get('/cart')])
+      .then(([addressResponse, cartResponse]) => {
+        if (!active) return;
+        const addressList = Array.isArray(addressResponse.data?.addresses) ? addressResponse.data.addresses : [];
+        setAddresses(addressList);
+        setCart(cartResponse.data?.cart || { items: [], total: 0 });
+        if (!addressList.length) navigate('/addresses?checkout=1', { replace: true });
+        else setSelected(addressList[0].id);
+      })
+      .catch(() => {
+        if (active) setError('Gagal memuat data checkout. Silakan coba lagi.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [navigate]);
 
   const submit = async () => {
-    const { data } = await api.post('/orders/checkout', { addressId: Number(selected) });
-    navigate(`/orders/${data.order.id}`);
+    try {
+      const { data } = await api.post('/orders/checkout', { addressId: Number(selected) });
+      navigate(`/orders/${data.order.id}`, { replace: true });
+    } catch {
+      setError('Pesanan gagal dibuat. Periksa keranjang dan alamat pengiriman.');
+    }
   };
+
+  if (loading) return <Loading />;
 
   return (
     <Panel title="Checkout" icon={Package}>
+      {error && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="space-y-3">
           <h2 className="font-bold">Alamat Pengiriman</h2>
@@ -421,6 +487,7 @@ function Checkout() {
           <h3 className="mb-3 font-bold">Ringkasan Belanja</h3>
           <p className="text-sm text-gray-500">{cartItems.length} produk</p>
           <p className="mb-4 text-xl font-bold">{formatIdr(cart.total)}</p>
+          {!cartItems.length && <p className="mb-4 rounded-md bg-yellow-50 p-3 text-sm text-yellow-700">Keranjang kosong. Tambahkan produk sebelum checkout.</p>}
           <button className="btn-primary w-full" onClick={submit} disabled={!selected || !cartItems.length}>Buat Pesanan</button>
         </div>
       </div>
@@ -680,5 +747,5 @@ function Loading() { return <div className="rounded-lg bg-white p-6 shadow-soft"
 function Empty({ text }) { return <div className="rounded-md border border-dashed border-gray-300 p-6 text-center text-gray-500">{text}</div>; }
 
 export default function App() {
-  return <AuthProvider><Shell /></AuthProvider>;
+  return <ErrorBoundary><AuthProvider><Shell /></AuthProvider></ErrorBoundary>;
 }
