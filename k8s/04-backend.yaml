@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: kubemarket-backend:latest
+          image: malubullul/kubemarket-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4000

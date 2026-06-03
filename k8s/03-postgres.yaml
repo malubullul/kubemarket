@@ -27,7 +27,8 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16-alpine
+          image: malubullul/kubemarket-postgres:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
           env:

@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./database
+    image: malubullul/kubemarket-postgres:latest
     container_name: kubemarket-postgres
     environment:
       POSTGRES_DB: kubemarket
@@ -19,6 +21,7 @@ services:
   backend:
     build:
       context: ./backend
+    image: malubullul/kubemarket-backend:latest
     container_name: kubemarket-backend
     environment:
       NODE_ENV: production
@@ -38,6 +41,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: /api
+    image: malubullul/kubemarket-frontend:latest
     container_name: kubemarket-frontend
     depends_on:
       - backend
