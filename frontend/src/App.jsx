@@ -1,5 +1,5 @@
 import { Component, createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   BarChart3, Boxes, ChevronRight, LayoutDashboard, LogOut,
   MapPin, Package, Search, ShoppingCart, Star, Store, Tag, User, Users
@@ -283,10 +283,12 @@ function ProductCard({ product }) {
   const navigate = useNavigate();
   const meta = productMeta(product.id);
 
-  const addToCart = async () => {
+  const addToCart = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (!user) return navigate('/login');
     await api.post('/cart/items', { productId: Number(product.id), quantity: 1 });
-    navigate('/cart');
+    navigate('/cart', { replace: false });
   };
 
   return (
@@ -302,7 +304,7 @@ function ProductCard({ product }) {
           <span>Stok {product.stock}</span>
           <span className="flex items-center gap-1"><Star size={13} className="fill-yellow-400 text-yellow-400" /> {meta.rating} | Terjual {meta.sold}</span>
         </div>
-        <button className="btn-primary w-full" onClick={addToCart}><ShoppingCart size={16} /> Tambah ke Keranjang</button>
+        <button type="button" className="btn-primary w-full" onClick={addToCart}><ShoppingCart size={16} /> Tambah ke Keranjang</button>
       </div>
     </article>
   );
@@ -319,10 +321,16 @@ function ProductDetail() {
     api.get(`/products/${id}`).then((response) => setProduct(response.data.product));
   }, [id]);
 
-  const addToCart = async (goCheckout = false) => {
+  const addToCart = async () => {
     if (!user) return navigate('/login');
     await api.post('/cart/items', { productId: Number(id), quantity });
-    navigate(goCheckout ? '/checkout' : '/cart');
+    navigate('/cart', { replace: false });
+  };
+
+  const buyNow = async () => {
+    if (!user) return navigate('/login');
+    await api.post('/cart/items', { productId: Number(id), quantity });
+    navigate('/checkout', { replace: false });
   };
 
   if (!product) return <Loading />;
@@ -343,8 +351,8 @@ function ProductDetail() {
           <span className="text-sm text-gray-500">Stok tersedia {product.stock}</span>
         </div>
         <div className="flex flex-wrap gap-3">
-          <button className="btn-secondary" onClick={() => addToCart(false)}><ShoppingCart size={18} /> Tambah ke Keranjang</button>
-          <button className="btn-primary" onClick={() => addToCart(true)}>Beli Sekarang</button>
+          <button type="button" className="btn-secondary" onClick={addToCart}><ShoppingCart size={18} /> Tambah ke Keranjang</button>
+          <button type="button" className="btn-primary" onClick={buyNow}>Beli Sekarang</button>
         </div>
       </div>
     </div>
@@ -485,10 +493,25 @@ function Checkout() {
         </div>
         <div className="rounded-md border border-gray-200 p-4">
           <h3 className="mb-3 font-bold">Ringkasan Belanja</h3>
+          <div className="mb-4 space-y-3">
+            {cartItems.map((item) => (
+              <div key={item.id} className="flex gap-3 border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
+                <img src={item.image_url} alt={item.name} className="h-14 w-14 rounded bg-gray-100 object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-sm font-semibold">{item.name}</p>
+                  <p className="text-xs text-gray-500">{item.quantity} x {formatIdr(item.price)}</p>
+                </div>
+                <p className="text-sm font-bold">{formatIdr(item.subtotal)}</p>
+              </div>
+            ))}
+          </div>
           <p className="text-sm text-gray-500">{cartItems.length} produk</p>
           <p className="mb-4 text-xl font-bold">{formatIdr(cart.total)}</p>
           {!cartItems.length && <p className="mb-4 rounded-md bg-yellow-50 p-3 text-sm text-yellow-700">Keranjang kosong. Tambahkan produk sebelum checkout.</p>}
-          <button className="btn-primary w-full" onClick={submit} disabled={!selected || !cartItems.length}>Buat Pesanan</button>
+          <div className="space-y-3">
+            <button type="button" className="btn-secondary w-full" onClick={() => navigate('/cart')}>Kembali ke Keranjang</button>
+            <button className="btn-primary w-full" onClick={submit} disabled={!selected || !cartItems.length}>Buat Pesanan</button>
+          </div>
         </div>
       </div>
     </Panel>
@@ -747,5 +770,7 @@ function Loading() { return <div className="rounded-lg bg-white p-6 shadow-soft"
 function Empty({ text }) { return <div className="rounded-md border border-dashed border-gray-300 p-6 text-center text-gray-500">{text}</div>; }
 
 export default function App() {
-  return <ErrorBoundary><AuthProvider><Shell /></AuthProvider></ErrorBoundary>;
+  const location = useLocation();
+
+  return <ErrorBoundary key={location.pathname}><AuthProvider><Shell /></AuthProvider></ErrorBoundary>;
 }
