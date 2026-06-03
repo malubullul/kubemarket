@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { query } from '../db.js';
+import { query, transaction } from '../db.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -77,9 +77,32 @@ router.patch('/orders/:id', async (req, res, next) => {
     const schema = z.object({ status: z.enum(['pending', 'paid', 'processing', 'shipped', 'completed', 'cancelled']) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: 'Validation failed', errors: parsed.error.flatten().fieldErrors });
-    const { rows } = await query('UPDATE orders SET status=$1, updated_at=now() WHERE id=$2 RETURNING *', [parsed.data.status, req.params.id]);
-    if (!rows[0]) return res.status(404).json({ message: 'Order not found' });
-    res.json({ order: rows[0] });
+
+    const order = await transaction(async (client) => {
+      const currentResult = await client.query('SELECT status FROM orders WHERE id = $1 FOR UPDATE', [req.params.id]);
+      if (!currentResult.rows[0]) {
+        const error = new Error('Order not found');
+        error.status = 404;
+        throw error;
+      }
+      const oldStatus = currentResult.rows[0].status;
+      const newStatus = parsed.data.status;
+
+      const orderResult = await client.query(
+        'UPDATE orders SET status = $1, updated_at = now() WHERE id = $2 RETURNING *',
+        [newStatus, req.params.id]
+      );
+
+      if (newStatus === 'cancelled' && oldStatus !== 'cancelled') {
+        const itemsResult = await client.query('SELECT product_id, quantity FROM order_items WHERE order_id = $1', [req.params.id]);
+        for (const item of itemsResult.rows) {
+          await client.query('UPDATE products SET stock = stock + $1 WHERE id = $2', [item.quantity, item.product_id]);
+        }
+      }
+      return orderResult.rows[0];
+    });
+
+    res.json({ order });
   } catch (error) {
     next(error);
   }

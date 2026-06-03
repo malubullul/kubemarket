@@ -24,12 +24,15 @@ router.get('/', async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const orderResult = await query(
-      `SELECT o.*, a.recipient_name, a.recipient_phone, a.province, a.city, a.district, a.postal_code, a.full_address
-       FROM orders o JOIN addresses a ON a.id=o.address_id
-       WHERE o.id=$1 AND o.user_id=$2`,
-      [req.params.id, req.user.id]
-    );
+    let q = `SELECT o.*, a.recipient_name, a.recipient_phone, a.province, a.city, a.district, a.postal_code, a.full_address
+             FROM orders o JOIN addresses a ON a.id=o.address_id
+             WHERE o.id=$1`;
+    const params = [req.params.id];
+    if (req.user.role !== 'admin') {
+      q += ' AND o.user_id=$2';
+      params.push(req.user.id);
+    }
+    const orderResult = await query(q, params);
     if (!orderResult.rows[0]) return res.status(404).json({ message: 'Order not found' });
     const items = await query('SELECT * FROM order_items WHERE order_id=$1 ORDER BY id', [req.params.id]);
     res.json({ order: { ...orderResult.rows[0], items: items.rows } });
@@ -100,6 +103,57 @@ router.post('/checkout', async (req, res, next) => {
     });
 
     res.status(201).json({ order });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:id/pay', async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      "UPDATE orders SET status = 'paid', updated_at = now() WHERE id = $1 AND user_id = $2 AND status = 'pending' RETURNING *",
+      [req.params.id, req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ message: 'Order not found or not in pending status' });
+    res.json({ order: rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:id/cancel', async (req, res, next) => {
+  try {
+    const order = await transaction(async (client) => {
+      const orderResult = await client.query(
+        "UPDATE orders SET status = 'cancelled', updated_at = now() WHERE id = $1 AND user_id = $2 AND status = 'pending' RETURNING *",
+        [req.params.id, req.user.id]
+      );
+      if (!orderResult.rows[0]) {
+        const error = new Error('Order not found or not in pending status');
+        error.status = 404;
+        throw error;
+      }
+
+      const itemsResult = await client.query('SELECT product_id, quantity FROM order_items WHERE order_id = $1', [req.params.id]);
+      for (const item of itemsResult.rows) {
+        await client.query('UPDATE products SET stock = stock + $1 WHERE id = $2', [item.quantity, item.product_id]);
+      }
+      return orderResult.rows[0];
+    });
+    res.json({ order });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:id/complete', async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      "UPDATE orders SET status = 'completed', updated_at = now() WHERE id = $1 AND user_id = $2 AND status = 'shipped' RETURNING *",
+      [req.params.id, req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ message: 'Order not found or not in shipped status' });
+    res.json({ order: rows[0] });
   } catch (error) {
     next(error);
   }

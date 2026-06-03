@@ -161,12 +161,77 @@ const products = [
   ['peralatan-rumah', 'Dispenser Sabun Otomatis', 'Dispenser sabun otomatis dengan sensor responsif untuk dapur dan kamar mandi.', 129000, 49, 'soap-dispenser']
 ];
 
+const unsplashImages = {
+  'bluetooth-headphones': 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=60',
+  'mechanical-keyboard': 'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?w=800&auto=format&fit=crop&q=60',
+  'wireless-mouse': 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=800&auto=format&fit=crop&q=60',
+  'power-bank': 'https://images.unsplash.com/photo-1585338107529-13afc5f02586?w=800&auto=format&fit=crop&q=60',
+  'phone-charger': 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=800&auto=format&fit=crop&q=60',
+  'usb-c-cable': 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&auto=format&fit=crop&q=60',
+  'mens-sneakers': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=60',
+  'oversized-tshirt': 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop&q=60',
+  'mens-hoodie': 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&auto=format&fit=crop&q=60',
+  'womens-crossbody-bag': 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=60',
+  'skincare-serum': 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&auto=format&fit=crop&q=60',
+  'stainless-water-bottle': 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&auto=format&fit=crop&q=60',
+  'kitchen-rack': 'https://images.unsplash.com/photo-1595515106969-1ce29566ff1c?w=800&auto=format&fit=crop&q=60',
+  'desk-lamp': 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&auto=format&fit=crop&q=60',
+  'arabica-coffee': 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=800&auto=format&fit=crop&q=60',
+  'green-tea': 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&auto=format&fit=crop&q=60',
+  'bedsheet': 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&auto=format&fit=crop&q=60',
+  'womens-blouse': 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?w=800&auto=format&fit=crop&q=60',
+  'womens-sandals': 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=800&auto=format&fit=crop&q=60',
+  'digital-watch': 'https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?w=800&auto=format&fit=crop&q=60',
+  'mens-wallet': 'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=800&auto=format&fit=crop&q=60',
+  'laptop-stand': 'https://images.unsplash.com/photo-1616440347437-b1c73416efc2?w=800&auto=format&fit=crop&q=60',
+  'webcam': 'https://images.unsplash.com/photo-1588508065123-287b28e013da?w=800&auto=format&fit=crop&q=60',
+  'smartwatch': 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&auto=format&fit=crop&q=60',
+  'medical-mask': 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&auto=format&fit=crop&q=60',
+  'vitamin-c': 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=800&auto=format&fit=crop&q=60',
+  'portable-vacuum': 'https://images.unsplash.com/photo-1558317374-067fb5f30001?w=800&auto=format&fit=crop&q=60',
+  'nonstick-pan': 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=800&auto=format&fit=crop&q=60',
+  'almond-chocolate': 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=800&auto=format&fit=crop&q=60',
+  'cassava-chips': 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=800&auto=format&fit=crop&q=60',
+  'mens-shirt': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&auto=format&fit=crop&q=60',
+  'mens-chino': 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=60',
+  'pleated-skirt': 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=800&auto=format&fit=crop&q=60',
+  'womens-cardigan': '/images/womens_cardigan.png',
+  'computer-glasses': '/images/clear_glasses.png',
+  'baseball-cap': 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&auto=format&fit=crop&q=60',
+  'usb-flash-drive': '/images/usb_flash_drive.png',
+  'external-ssd': '/images/external_ssd.png',
+  'bluetooth-speaker': 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=800&auto=format&fit=crop&q=60',
+  'phone-tripod': '/images/tripod_stand.png',
+  'storage-box': '/images/storage_box.png',
+  'bath-mat': '/images/bath_mat.png',
+  'digital-scale': 'https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?w=800&auto=format&fit=crop&q=60',
+  'eucalyptus-oil': '/images/eucalyptus_oil.png',
+  'granola': '/images/granola_bowl.png',
+  'chili-sauce': '/images/chili_sauce.png',
+  'bomber-jacket': '/images/bomber_jacket.png',
+  'hijab': 'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?w=800&auto=format&fit=crop&q=60',
+  'bracelet': 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=800&auto=format&fit=crop&q=60',
+  'laptop-cooling-pad': 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=60',
+  'usb-c-earphones': 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=60',
+  'soap-dispenser': 'https://images.unsplash.com/photo-1603006905003-be475563bc59?w=800&auto=format&fit=crop&q=60'
+};
+
 function productImage(keyword, index) {
-  return `https://loremflickr.com/800/600/${encodeURIComponent(keyword)}?lock=${index + 101}`;
+  if (unsplashImages[keyword]) return unsplashImages[keyword];
+  return `https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=60`;
 }
 
 export async function ensureSeedData() {
   await query(schemaSql);
+  
+  // Update all product image URLs by their names to ensure they are correct and relevant
+  for (const item of products) {
+    const url = unsplashImages[item[5]];
+    if (url) {
+      await query("UPDATE products SET image_url = $1 WHERE name = $2", [url, item[1]]);
+    }
+  }
+
   const existing = await query(`
     SELECT
       (SELECT COUNT(*)::int FROM products) AS product_count,

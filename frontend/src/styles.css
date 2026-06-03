@@ -1,28 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
+  font-family: 'Outfit', sans-serif;
   color: #17202a;
-  background: #f6f7f9;
+  background: #f8fafc;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Glassmorphism elements */
+.glass-header {
+  @apply sticky top-0 z-30 border-b border-slate-100 bg-white/80 backdrop-blur-md;
+}
+
+/* Input Fields */
 .input {
-  @apply w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-market-green focus:ring-2 focus:ring-green-100;
+  @apply w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all duration-200 focus:border-market-green focus:ring-4 focus:ring-emerald-500/10 placeholder:text-slate-400;
 }
 
+/* Premium Buttons */
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98];
 }
 
 .btn-primary {
-  @apply btn bg-market-green text-white hover:bg-green-700;
+  @apply btn bg-gradient-to-r from-market-green to-emerald-600 text-white shadow-lg shadow-emerald-600/15 hover:from-emerald-600 hover:to-green-700 hover:shadow-emerald-600/25;
 }
 
 .btn-secondary {
-  @apply btn border border-gray-200 bg-white text-market-ink hover:border-market-green hover:text-market-green;
+  @apply btn border border-slate-200 bg-white text-slate-700 hover:border-market-green hover:text-market-green hover:bg-slate-50;
 }
 
+.btn-danger {
+  @apply btn bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 hover:text-rose-700;
+}
+
+.btn-success {
+  @apply btn bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 hover:text-emerald-700;
+}
+
+/* Status Pills */
 .pill {
-  @apply inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700;
+  @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide transition-all;
+}
+
+.pill-default {
+  @apply pill bg-slate-100 text-slate-700;
+}
+
+.pill-pending {
+  @apply pill bg-amber-50 text-amber-700 border border-amber-100;
+}
+
+.pill-paid {
+  @apply pill bg-indigo-50 text-indigo-700 border border-indigo-100;
+}
+
+.pill-processing {
+  @apply pill bg-blue-50 text-blue-700 border border-blue-100;
+}
+
+.pill-shipped {
+  @apply pill bg-sky-50 text-sky-700 border border-sky-100;
+}
+
+.pill-completed {
+  @apply pill bg-emerald-50 text-emerald-700 border border-emerald-100;
+}
+
+.pill-cancelled {
+  @apply pill bg-rose-50 text-rose-700 border border-rose-100;
+}
+
+/* Layout Cards */
+.card-hover {
+  @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-slate-300;
+}
+
+.panel-card {
+  @apply rounded-xl border border-slate-100 bg-white p-6 shadow-soft;
+}
+
+/* Table Style */
+.table-container {
+  @apply mt-4 overflow-x-auto rounded-lg border border-slate-100 shadow-sm bg-white;
+}
+
+.table-header {
+  @apply bg-slate-50 border-b border-slate-100 text-left text-xs font-semibold uppercase tracking-wider text-slate-500;
+}
+
+.table-row {
+  @apply border-b border-slate-100 transition-colors hover:bg-slate-50 last:border-b-0;
+}
+
+.table-cell {
+  @apply px-4 py-3.5 text-sm text-slate-700;
 }
